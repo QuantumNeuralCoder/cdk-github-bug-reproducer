@@ -1,4 +1,4 @@
-#!/Users/indradey/fresh/hack-idea-4/lambda/venv/bin/python
+#!/Users/indradey/fresh/hack-idea-4/cdk-github-bug-reproducer/lambda/venv/bin/python
 # -*- coding: utf-8 -*-
 import re
 import sys

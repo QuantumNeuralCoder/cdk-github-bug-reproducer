@@ -1,0 +1,10 @@
+{
+  "name": "lambda-js",
+  "version": "1.0.0",
+  "type": "module",
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.49.0",
+    "@aws-sdk/client-bedrock": "^3.49.0",
+    "@octokit/rest": "^19.0.0"
+  }
+}

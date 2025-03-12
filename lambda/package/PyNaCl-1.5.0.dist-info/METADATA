@@ -16,7 +16,6 @@ Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Requires-Python: >=3.6
-License-File: LICENSE
 Requires-Dist: cffi (>=1.4.1)
 Provides-Extra: docs
 Requires-Dist: sphinx (>=1.6.5) ; extra == 'docs'

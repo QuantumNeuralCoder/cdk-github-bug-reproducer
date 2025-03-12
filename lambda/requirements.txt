@@ -1,2 +1,5 @@
 boto3
 PyGithub
+cffi==1.15.1  # Use the latest stable version
+cryptography
+# other dependencies...

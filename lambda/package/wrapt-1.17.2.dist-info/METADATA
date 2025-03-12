@@ -1,4 +1,4 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.1
 Name: wrapt
 Version: 1.17.2
 Summary: Module for decorators, wrappers and monkey patching.
