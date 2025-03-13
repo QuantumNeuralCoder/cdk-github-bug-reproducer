@@ -8,6 +8,7 @@ import * as logs from 'aws-cdk-lib/aws-logs';
 import * as s3deploy from 'aws-cdk-lib/aws-s3-deployment';
 import { Construct } from 'constructs';
 import * as path from 'path';
+import { AwsCustomResource, AwsCustomResourcePolicy, PhysicalResourceId } from 'aws-cdk-lib/custom-resources';
 export class CdkGithubBugReproducerStack extends cdk.Stack {
     constructor(scope: Construct, id: string, props?: cdk.StackProps) {
         super(scope, id, props);
@@ -21,14 +22,42 @@ export class CdkGithubBugReproducerStack extends cdk.Stack {
             removalPolicy: cdk.RemovalPolicy.RETAIN, // Prevent accidental deletion
             blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
             autoDeleteObjects: false, // Change to true if you want to delete files on stack deletion
+            versioned: true  // Control versioning at bucket level
         });
 
         // ✅ Upload `buildspec.yml` to S3
-        new s3deploy.BucketDeployment(this, 'DeployBuildspec', {
+        const bucketDeployment = new s3deploy.BucketDeployment(this, 'DeployBuildspec', {
             sources: [s3deploy.Source.asset(path.join(__dirname, '../buildspecs'))], // Only this file
             destinationBucket: buildspecBucket,
-            destinationKeyPrefix: 'buildspecs'
+            destinationKeyPrefix: 'buildspecs',
         });
+
+
+        // Get the version ID of the deployed buildspec.yml
+        const versionGetter = new AwsCustomResource(this, 'S3VersionGetter', {
+            onUpdate: {
+                service: 'S3',
+                action: 'listObjectVersions',
+                parameters: {
+                    Bucket: buildspecBucket.bucketName,
+                    Prefix: 'buildspecs/buildspec.yml'
+                },
+                physicalResourceId: PhysicalResourceId.of(Date.now().toString()),
+                outputPaths: ['Versions.0.VersionId']
+            },
+            policy: AwsCustomResourcePolicy.fromStatements([
+                new iam.PolicyStatement({
+                    actions: ['s3:ListBucketVersions'],
+                    resources: [buildspecBucket.bucketArn]
+                })
+            ])
+        });
+        
+        // Make sure version getter runs after bucket deployment
+        versionGetter.node.addDependency(bucketDeployment);
+    
+        // Get the version ID
+        const buildspecVersionId = versionGetter.getResponseField('Versions.0.VersionId');
           
         // ✅ IAM Role for CodeBuild
         const codeBuildRole = new iam.Role(this, "CodeBuildServiceRole", {
@@ -41,6 +70,12 @@ export class CdkGithubBugReproducerStack extends cdk.Stack {
         // ✅ Allow CodeBuild to read from the S3 bucket
         buildspecBucket.grantRead(codeBuildRole);
 
+        // Output the version ID
+        new cdk.CfnOutput(this, "BuildspecVersionId", {
+            value: buildspecVersionId,
+            description: "Version ID of the deployed buildspec.yml",
+        });
+
         // ✅ CodeBuild Project using `buildspec.yml` from S3
         const buildProject = new codebuild.Project(this, "CdkIssueDockerBuild", {
             projectName: "cdk-issue-docker-build",
@@ -48,6 +83,7 @@ export class CdkGithubBugReproducerStack extends cdk.Stack {
             source: codebuild.Source.s3({
                 bucket: buildspecBucket,
                 path: "buildspecs/buildspec.yml", // Path to buildspec in S3
+                version: buildspecVersionId
             }),
             environment: {
                 buildImage: codebuild.LinuxBuildImage.STANDARD_5_0,
@@ -55,7 +91,8 @@ export class CdkGithubBugReproducerStack extends cdk.Stack {
                 environmentVariables: {
                     "AWS_ACCOUNT_ID": { value: AWS_ACCOUNT_ID },
                     "AWS_REGION": { value: AWS_REGION },
-                    "REPO_PREFIX": { value: REPO_PREFIX }
+                    "REPO_PREFIX": { value: REPO_PREFIX },
+                    "BUCKET_NAME": { value: buildspecBucket.bucketName }
                 },
             },
         });
