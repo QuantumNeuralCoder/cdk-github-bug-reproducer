@@ -8,7 +8,7 @@ import * as logs from 'aws-cdk-lib/aws-logs';
 import * as s3deploy from 'aws-cdk-lib/aws-s3-deployment';
 import { Construct } from 'constructs';
 import * as path from 'path';
-import { AwsCustomResource, AwsCustomResourcePolicy, PhysicalResourceId } from 'aws-cdk-lib/custom-resources';
+import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
 export class CdkGithubBugReproducerStack extends cdk.Stack {
     constructor(scope: Construct, id: string, props?: cdk.StackProps) {
         super(scope, id, props);
@@ -16,49 +16,11 @@ export class CdkGithubBugReproducerStack extends cdk.Stack {
         const AWS_REGION = "us-east-1";
         const AWS_ACCOUNT_ID = cdk.Stack.of(this).account;
         const REPO_PREFIX = "cdk-debug-env";
+        const GITHUB_OWNER = "QuantumNeuralCoder"; // e.g., "QuantumNeuralCoder"
+        const GITHUB_REPO = "cdk-github-bug-reproducer"; // e.g., "cdk-github-bug-reproducer"
+        const GITHUB_BRANCH = "hackidea4docker"; // Change if needed
 
-        // ✅ Create S3 bucket for storing buildspec.yml
-        const buildspecBucket = new s3.Bucket(this, "BuildspecBucket", {
-            removalPolicy: cdk.RemovalPolicy.RETAIN, // Prevent accidental deletion
-            blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
-            autoDeleteObjects: false, // Change to true if you want to delete files on stack deletion
-            versioned: true  // Control versioning at bucket level
-        });
-
-        // ✅ Upload `buildspec.yml` to S3
-        const bucketDeployment = new s3deploy.BucketDeployment(this, 'DeployBuildspec', {
-            sources: [s3deploy.Source.asset(path.join(__dirname, '../buildspecs'))], // Only this file
-            destinationBucket: buildspecBucket,
-            destinationKeyPrefix: 'buildspecs',
-        });
-
-
-        // Get the version ID of the deployed buildspec.yml
-        const versionGetter = new AwsCustomResource(this, 'S3VersionGetter', {
-            onUpdate: {
-                service: 'S3',
-                action: 'listObjectVersions',
-                parameters: {
-                    Bucket: buildspecBucket.bucketName,
-                    Prefix: 'buildspecs/buildspec.yml'
-                },
-                physicalResourceId: PhysicalResourceId.of(Date.now().toString()),
-                outputPaths: ['Versions.0.VersionId']
-            },
-            policy: AwsCustomResourcePolicy.fromStatements([
-                new iam.PolicyStatement({
-                    actions: ['s3:ListBucketVersions'],
-                    resources: [buildspecBucket.bucketArn]
-                })
-            ])
-        });
-        
-        // Make sure version getter runs after bucket deployment
-        versionGetter.node.addDependency(bucketDeployment);
-    
-        // Get the version ID
-        const buildspecVersionId = versionGetter.getResponseField('Versions.0.VersionId');
-          
+  
         // ✅ IAM Role for CodeBuild
         const codeBuildRole = new iam.Role(this, "CodeBuildServiceRole", {
             assumedBy: new iam.ServicePrincipal("codebuild.amazonaws.com"),
@@ -67,33 +29,35 @@ export class CdkGithubBugReproducerStack extends cdk.Stack {
         codeBuildRole.addManagedPolicy(iam.ManagedPolicy.fromAwsManagedPolicyName("AWSCodeBuildAdminAccess"));
         codeBuildRole.addManagedPolicy(iam.ManagedPolicy.fromAwsManagedPolicyName("AmazonEC2ContainerRegistryFullAccess"));
 
-        // ✅ Allow CodeBuild to read from the S3 bucket
-        buildspecBucket.grantRead(codeBuildRole);
-
-        // Output the version ID
-        new cdk.CfnOutput(this, "BuildspecVersionId", {
-            value: buildspecVersionId,
-            description: "Version ID of the deployed buildspec.yml",
-        });
-
-        // ✅ CodeBuild Project using `buildspec.yml` from S3
+        // ✅ Step 1: Store GitHub Token in AWS Secrets Manager
+        const githubToken = secretsmanager.Secret.fromSecretNameV2(
+            this,
+            "GitHubAccessTokenCodebuild",
+            "GitHubAccessTokenCodebuild" // Make sure the secret exists in AWS Secrets Manager
+        );
+  
+        new codebuild.GitHubSourceCredentials(this, 'CodeBuildGitHubCreds', {
+            accessToken: cdk.SecretValue.secretsManager('GitHubAccessTokenCodebuild'),
+          });
+        // ✅ CodeBuild Project using GitHub as source
         const buildProject = new codebuild.Project(this, "CdkIssueDockerBuild", {
             projectName: "cdk-issue-docker-build",
             role: codeBuildRole,
-            source: codebuild.Source.s3({
-                bucket: buildspecBucket,
-                path: "buildspecs/buildspec.yml", // Path to buildspec in S3
-                version: buildspecVersionId
+            source: codebuild.Source.gitHub({
+                owner: GITHUB_OWNER,
+                repo: GITHUB_REPO,
+                branchOrRef: GITHUB_BRANCH,
+                webhook: true, // Automatically trigger on GitHub commits
             }),
+            buildSpec: codebuild.BuildSpec.fromSourceFilename("buildspecs/buildspec.yml"), // Uses `buildspec.yml` from GitHub
             environment: {
-                buildImage: codebuild.LinuxBuildImage.STANDARD_5_0,
-                privileged: true, // Required for Docker builds
-                environmentVariables: {
-                    "AWS_ACCOUNT_ID": { value: AWS_ACCOUNT_ID },
-                    "AWS_REGION": { value: AWS_REGION },
-                    "REPO_PREFIX": { value: REPO_PREFIX },
-                    "BUCKET_NAME": { value: buildspecBucket.bucketName }
-                },
+            buildImage: codebuild.LinuxBuildImage.STANDARD_5_0,
+            privileged: true, // Required for Docker builds
+            environmentVariables: {
+                "AWS_ACCOUNT_ID": { value: process.env.CDK_DEFAULT_ACCOUNT || "" },
+                "AWS_REGION": { value: process.env.CDK_DEFAULT_REGION || "us-east-1" },
+                "REPO_PREFIX": { value: "cdk-issue-repo" }, // Adjust if needed
+            },
             },
         });
 
@@ -126,7 +90,6 @@ export class CdkGithubBugReproducerStack extends cdk.Stack {
                 CODEBUILD_PROJECT_NAME: buildProject.projectName,
                 AWS_ACCOUNT_ID: AWS_ACCOUNT_ID,
                 REPO_PREFIX: REPO_PREFIX,
-                BUILDSPEC_BUCKET_NAME: buildspecBucket.bucketName,
             },
         });
 
@@ -167,6 +130,5 @@ export class CdkGithubBugReproducerStack extends cdk.Stack {
         // ✅ Outputs
         new cdk.CfnOutput(this, "APIGatewayURL", { value: api.url });
         new cdk.CfnOutput(this, "CodeBuildProjectName", { value: buildProject.projectName });
-        new cdk.CfnOutput(this, "BuildspecS3Bucket", { value: buildspecBucket.bucketName });
     }
 }

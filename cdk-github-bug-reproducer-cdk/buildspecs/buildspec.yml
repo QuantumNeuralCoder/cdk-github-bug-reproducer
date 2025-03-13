@@ -5,14 +5,6 @@ version: 0.2
         nodejs: 18
     pre_build:
       commands:
-        - echo "Fetching latest buildspec.yml version..."
-        - export VERSION_ID=$(aws s3api list-object-versions \
-            --bucket $BUCKET_NAME \
-            --prefix buildspecs/buildspec.yml \
-            --query 'Versions[?IsLatest].VersionId' \
-            --output text)
-        - echo "Using buildspec.yml version: $VERSION_ID"
-        - aws s3 cp s3://$BUCKET_NAME/buildspecs/buildspec.yml /tmp/buildspec.yml --version-id $VERSION_ID
         - echo "🔹 Logging into AWS ECR..."
         - aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com
     build:
