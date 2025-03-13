@@ -7,6 +7,8 @@ import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as logs from 'aws-cdk-lib/aws-logs';
 import * as s3deploy from 'aws-cdk-lib/aws-s3-deployment';
 import { Construct } from 'constructs';
+import * as codepipeline from 'aws-cdk-lib/aws-codepipeline';
+import * as codepipeline_actions from 'aws-cdk-lib/aws-codepipeline-actions';
 import * as path from 'path';
 import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
 export class CdkGithubBugReproducerStack extends cdk.Stack {
@@ -39,26 +41,48 @@ export class CdkGithubBugReproducerStack extends cdk.Stack {
         new codebuild.GitHubSourceCredentials(this, 'CodeBuildGitHubCreds', {
             accessToken: cdk.SecretValue.secretsManager('GitHubAccessTokenCodebuild'),
           });
-        // ✅ CodeBuild Project using GitHub as source
-        const buildProject = new codebuild.Project(this, "CdkIssueDockerBuild", {
+
+         // ✅ Step 3: Create a CodeBuild Project
+        const buildProject = new codebuild.PipelineProject(this, "CdkIssueDockerBuild", {
             projectName: "cdk-issue-docker-build",
-            role: codeBuildRole,
-            source: codebuild.Source.gitHub({
-                owner: GITHUB_OWNER,
-                repo: GITHUB_REPO,
-                branchOrRef: GITHUB_BRANCH,
-                webhook: true, // Automatically trigger on GitHub commits
-            }),
-            buildSpec: codebuild.BuildSpec.fromSourceFilename("buildspecs/buildspec.yml"), // Uses `buildspec.yml` from GitHub
+            buildSpec: codebuild.BuildSpec.fromSourceFilename("buildspec.yml"), // ✅ Read from GitHub repo
             environment: {
             buildImage: codebuild.LinuxBuildImage.STANDARD_5_0,
-            privileged: true, // Required for Docker builds
-            environmentVariables: {
-                "AWS_ACCOUNT_ID": { value: process.env.CDK_DEFAULT_ACCOUNT || "" },
-                "AWS_REGION": { value: process.env.CDK_DEFAULT_REGION || "us-east-1" },
-                "REPO_PREFIX": { value: "cdk-issue-repo" }, // Adjust if needed
+            privileged: true,
             },
+        });
+        // ✅ Step 4: CodePipeline Source Stage (GitHub)
+        const sourceOutput = new codepipeline.Artifact();
+        const sourceAction = new codepipeline_actions.GitHubSourceAction({
+            actionName: "GitHub_Source",
+            owner: GITHUB_OWNER,  // 🔹 CHANGE THIS
+            repo: GITHUB_REPO,       // 🔹 CHANGE THIS
+            branch: GITHUB_BRANCH,                 // 🔹 CHANGE THIS
+            oauthToken: cdk.SecretValue.secretsManager("GitHubAccessTokenCodebuild"),
+            output: sourceOutput,
+            trigger: codepipeline_actions.GitHubTrigger.WEBHOOK,
+          });
+
+        // ✅ Step 5: CodeBuild Stage
+        const buildAction = new codepipeline_actions.CodeBuildAction({
+            actionName: "CodeBuild",
+            project: buildProject,
+            input: sourceOutput,
+        });
+
+        // ✅ Step 6: Create CodePipeline
+        new codepipeline.Pipeline(this, "CdkIssuePipeline", {
+            pipelineName: "CdkIssuePipeline",
+            stages: [
+            {
+                stageName: "Source",
+                actions: [sourceAction],
             },
+            {
+                stageName: "Build",
+                actions: [buildAction],
+            },
+            ],
         });
 
         // ✅ IAM Role for Lambda
@@ -108,8 +132,6 @@ export class CdkGithubBugReproducerStack extends cdk.Stack {
         const apiGatewayAccount = new apigateway.CfnAccount(this, 'ApiGatewayAccount', {
             cloudWatchRoleArn: apiGatewayLogRole.roleArn
         });
-        
-
         
         // API Gateway for GitHub Webhook
         const api = new apigateway.RestApi(this, 'GithubWebhookAPI', {
