@@ -1,51 +1,44 @@
-import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+import { CodeBuildClient, StartBuildCommand } from "@aws-sdk/client-codebuild";
 import { Octokit } from "@octokit/rest";
 
-const s3 = new S3Client();
+const codebuild = new CodeBuildClient();
 const octokit = new Octokit({ auth: process.env.GITHUB_TOKEN });
+
+const AWS_ACCOUNT_ID = process.env.AWS_ACCOUNT_ID;
+const AWS_REGION = process.env.AWS_REGION || "us-east-1";
+const CODEBUILD_PROJECT_NAME = process.env.CODEBUILD_PROJECT_NAME;
+const REPO_PREFIX = process.env.REPO_PREFIX;
+const BUILDSPEC_BUCKET_NAME = process.env.BUILDSPEC_BUCKET_NAME;
 
 export async function handler(event) {
     console.log("Received event:", JSON.stringify(event, null, 2));
 
-    // Ensure API Gateway event body is parsed correctly
-    let body;
-    if (event.body) {
-        try {
-            body = JSON.parse(event.body);  // 🔥 FIX: Parse event.body
-        } catch (error) {
-            console.error("❌ Error parsing JSON body:", error);
-            return { statusCode: 400, body: "Invalid JSON format" };
-        }
-    } else {
-        body = event;  // If directly called without API Gateway
-    }
-
-    // ✅ FIX: Correctly access the issue object
-    const issue = body.issue;  
+    const body = JSON.parse(event.body || "{}");
+    const issue = body.issue;
 
     if (!issue) {
-        console.error("❌ Error: Missing 'issue' field in payload");
+        console.error("❌ ERROR: Missing 'issue' field in payload");
         return { statusCode: 400, body: "Invalid payload: Missing 'issue' field" };
     }
 
-    console.log("✅ Parsed issue:", issue);
+    const issueNumber = issue.number;
+    console.log(`🔹 Processing GitHub Issue #${issueNumber}`);
 
-    // Upload dummy file to S3
-    const uploadParams = {
-        Bucket: process.env.S3_BUCKET,
-        Key: `issues/${issue.number}.txt`,
-        Body: JSON.stringify(issue)
+    const imageTag = `${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${REPO_PREFIX}-${issueNumber}:latest`;
+
+    // ✅ Trigger AWS CodeBuild using `buildspec.yml` in S3
+    const buildParams = {
+        projectName: CODEBUILD_PROJECT_NAME,
+        sourceVersion: `s3://${BUILDSPEC_BUCKET_NAME}/buildspecs/buildspec.yml`,
+        environmentVariablesOverride: [
+            { name: "ISSUE_NUMBER", value: String(issueNumber), type: "PLAINTEXT" },
+            { name: "IMAGE_TAG", value: imageTag, type: "PLAINTEXT" },
+            { name: "ISSUE_METADATA", value: JSON.stringify(issue), type: "PLAINTEXT" },
+        ],
     };
 
-    await s3.send(new PutObjectCommand(uploadParams));
+    console.log(`🚀 Starting CodeBuild for Issue #${issueNumber}...`);
+    await codebuild.send(new StartBuildCommand(buildParams));
 
-    // Post comment to GitHub
-    await octokit.issues.createComment({
-        owner: "QuantumNeuralCoder",
-        repo: "cdk-github-bug-reproducer",
-        issue_number: issue.number,
-        body: `Issue processed and uploaded to S3: ${uploadParams.Key}`
-    });
-
-    return { statusCode: 200, body: "Issue processed successfully!" };
+    return { statusCode: 200, body: `CodeBuild started for Issue #${issueNumber}` };
 }
