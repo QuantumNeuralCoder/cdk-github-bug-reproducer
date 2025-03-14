@@ -59,5 +59,7 @@ RUN which python node npm tsc cdk npx uv aws uvx
 # Copy application code
 COPY index.py .
 
+Add agents /app/agents/
+
 # Set the entrypoint
 ENTRYPOINT ["python", "index.py"]
