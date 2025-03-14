@@ -23,6 +23,9 @@ from github import Github
 import sys
 import random
 import asyncio
+# Import process function from local processor.py file using a direct import
+# that doesn't rely on Python module structure
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 from processor import process
 
 # Configure logging
