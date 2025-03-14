@@ -17,6 +17,7 @@ import logging
 import time
 import uuid
 import requests
+import shutil
 from botocore.exceptions import ClientError
 from github import Github
 import sys
@@ -189,44 +190,81 @@ def release_account(account_id, task_id):
 
 def upload_result_to_s3(issue_id, repo_name):
     """
-    Upload a result file to S3
+    Upload the GitHub issue reproduction code as a zip file to S3
     """
     if not RESULTS_BUCKET:
         logger.error("Results bucket not provided")
         return None
 
-    file_name = f"{issue_id}.txt"
-    content = f"""
+    # Define paths and file names
+    source_dir = f"/app/gh_issues/gh_issue_{issue_id}"
+    zip_file_name = f"{issue_id}_results.zip"
+    temp_zip_path = f"/tmp/{zip_file_name}"
+    s3_directory = f"{issue_id}/"
+    s3_zip_key = f"{s3_directory}{zip_file_name}"
+    s3_summary_key = f"{s3_directory}summary.txt"
+    
+    # Create summary content
+    summary_content = f"""
     GitHub Issue Processing Results
     ------------------------------
     Issue ID: {issue_id}
     Repository: {repo_name}
     Processed at: {time.strftime('%Y-%m-%d %H:%M:%S')}
 
-    This is a dummy result file for demonstration purposes.
-    The issue has been successfully processed.
+    The zip file contains a CDK application that reproduces the issue.
     """
 
     try:
+        # Check if source directory exists
+        if not os.path.exists(source_dir):
+            logger.error(f"Source directory not found: {source_dir}")
+            return None
+            
+        # Create zip file of the directory
+        logger.info(f"Creating zip file of directory: {source_dir}")
+        shutil.make_archive(
+            base_name=temp_zip_path.replace('.zip', ''),  # remove .zip as make_archive adds it
+            format='zip',
+            root_dir=os.path.dirname(source_dir),
+            base_dir=os.path.basename(source_dir)
+        )
+        
+        # Upload the zip file to S3
+        logger.info(f"Uploading zip file to S3: {s3_zip_key}")
+        with open(temp_zip_path, 'rb') as zip_file:
+            s3_client.put_object(
+                Bucket=RESULTS_BUCKET,
+                Key=s3_zip_key,
+                Body=zip_file.read(),
+                ContentType='application/zip'
+            )
+        
+        # Upload the summary file to S3
+        logger.info(f"Uploading summary file to S3: {s3_summary_key}")
         s3_client.put_object(
             Bucket=RESULTS_BUCKET,
-            Key=file_name,
-            Body=content,
+            Key=s3_summary_key,
+            Body=summary_content,
             ContentType='text/plain'
         )
+        
+        # Clean up the temporary zip file
+        os.remove(temp_zip_path)
+        logger.info(f"Removed temporary zip file: {temp_zip_path}")
 
-        # Generate a presigned URL that expires in 7 days
+        # Generate a presigned URL for the zip file that expires in 7 days
         url = s3_client.generate_presigned_url(
             'get_object',
-            Params={'Bucket': RESULTS_BUCKET, 'Key': file_name},
+            Params={'Bucket': RESULTS_BUCKET, 'Key': s3_zip_key},
             ExpiresIn=604800  # 7 days in seconds
         )
 
-        logger.info(f"Successfully uploaded result to S3: {file_name}")
+        logger.info(f"Successfully uploaded results to S3: {s3_zip_key}")
         return url
 
     except Exception as e:
-        logger.error(f"Error uploading result to S3: {str(e)}")
+        logger.error(f"Error uploading results to S3: {str(e)}")
         return None
 
 def add_github_comment(repo_name, issue_number, result_url):
