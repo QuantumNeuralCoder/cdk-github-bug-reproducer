@@ -108,32 +108,31 @@ phases:
       - docker build -t "$IMAGE_TAG" .
       - docker push "$IMAGE_TAG"
 
-    post_build:
-      commands:
-        - echo "Docker Image Pushed - $IMAGE_TAG"
-        - echo "Posting comment to GitHub Issue #$ISSUE_NUMBER"
-        - COMMENT_BODY=$(printf "#### Docker Debugging Environment Ready!\n\n"
-            " **To reproduce this issue, run the following commands:**\n\n"
-            " \`\`\`bash\n"
-            " docker pull $IMAGE_TAG\n\n"
-            " docker run --rm -it \\\n"
-            "     -e AWS_REGION=$AWS_REGION \\\n"
-            "     -e AWS_ACCOUNT_ID=$AWS_ACCOUNT_ID \\\n"
-            "     -e ISSUE_NUMBER=$ISSUE_NUMBER \\\n"
-            "     -v ~/.aws:/root/.aws \\\n"
-            "     $IMAGE_TAG\n"
-            " \`\`\`\n"
-            " _This environment was automatically created by AWS CodeBuild._"
-          )
-
-        # Post the comment only if GITHUB_TOKEN is set
-        - if [ -z "$GITHUB_TOKEN" ]; then echo "GITHUB_TOKEN is missing, skipping GitHub comment."; else
+  post_build:
+    commands:
+      - echo "Docker Image Pushed - $IMAGE_TAG"
+      - echo "Posting comment to GitHub Issue #$ISSUE_NUMBER"
+      - |
+        COMMENT_BODY=$(printf "#### Docker Debugging Environment Ready!\n\n"
+          " **To reproduce this issue, run the following commands:**\n\n"
+          " \`\`\`bash\n"
+          " docker pull $IMAGE_TAG\n\n"
+          " docker run --rm -it \\\n"
+          "     -e AWS_REGION=$AWS_REGION \\\n"
+          "     -e AWS_ACCOUNT_ID=$AWS_ACCOUNT_ID \\\n"
+          "     -e ISSUE_NUMBER=$ISSUE_NUMBER \\\n"
+          "     -v ~/.aws:/root/.aws \\\n"
+          "     $IMAGE_TAG\n"
+          " \`\`\`\n"
+          " _This environment was automatically created by AWS CodeBuild._"
+        )
+      - |
+        if [ -z "$GITHUB_TOKEN" ]; then 
+          echo "GITHUB_TOKEN is missing, skipping GitHub comment."; 
+        else
           curl -X POST -H "Authorization: token $GITHUB_TOKEN" \
               -H "Accept: application/vnd.github.v3+json" \
               -d "{\"body\": \"$COMMENT_BODY\"}" \
               "https://api.github.com/repos/QuantumNeuralCoder/cdk-github-bug-reproducer/issues/$ISSUE_NUMBER/comments" &&
           echo "Comment posted successfully!";
-          fi
-
-
-        
+        fi
