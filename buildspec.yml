@@ -22,4 +22,4 @@ phases:
       - docker push "$IMAGE_TAG"
   post_build:
     commands:
-      - echo "✅ Docker Image Pushed: $IMAGE_TAG"
+      - echo "Docker Image Pushed - $IMAGE_TAG"
