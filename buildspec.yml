@@ -20,9 +20,6 @@ phases:
     commands:
       - echo "Building CDK Issue Debug Env for Issue $ISSUE_NUMBER"
       - mkdir -p /workspace/cdk-app
-      - cd /workspace/cdk-app
-      - npm install -g aws-cdk
-      - cdk init --app "$ISSUE_NUMBER" --language=typescript
       - if [ ! -z "$ISSUE_METADATA" ]; then echo "$ISSUE_METADATA" > /workspace/cdk-app/issue-metadata.txt; fi
       - |
           cat <<'EOF' > /workspace/setup.sh
@@ -51,17 +48,17 @@ phases:
             echo "ERROR: ISSUE_NUMBER environment variable is not set!"
             exit 1
           fi
-
-        
-          # Fetch issue details from GitHub
-          echo "Fetching last known working CDK version from GitHub Issue #$ISSUE_NUMBER..."
-          LATEST_CDK_VERSION=$(curl -s -H "Authorization: token $GITHUB_TOKEN" \
-            "https://api.github.com/repos/QuantumNeuralCoder/cdk-github-bug-reproducer/issues/$ISSUE_NUMBER" | \
-            jq -r '.body' | grep -oP 'aws-cdk-lib@\K[0-9]+\.[0-9]+\.[0-9]+' || echo "latest")
-
+          # Read last known CDK version from issue metadata
+          LATEST_CDK_VERSION=$(cat /workspace/cdk-app/issue-metadata.txt | grep -oP 'aws-cdk-lib@\K[0-9]+\.[0-9]+\.[0-9]+' || echo "latest")
           echo "Installing AWS CDK version $LATEST_CDK_VERSION"
           cd /workspace/cdk-env
           npm install aws-cdk-lib@$LATEST_CDK_VERSION
+
+          # Initialize the CDK app
+          echo "🔹 Initializing CDK App..."
+          cd /workspace/cdk-app
+          npm install -g aws-cdk
+          cdk init --app "$ISSUE_NUMBER" --language=typescript
 
           echo "Issue environment setup complete!"
           exec /bin/bash  # Keep container open for interactive debugging
