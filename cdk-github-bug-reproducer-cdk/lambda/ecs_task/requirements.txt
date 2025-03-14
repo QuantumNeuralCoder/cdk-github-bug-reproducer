@@ -1,8 +1,12 @@
-boto3>=1.26.0
+boto3>=1.37.4
+mcp>=1.0.0
 requests>=2.28.1
-PyGithub>=1.58.0
+PyGithub>=2.4.0
+GitPython==3.1.43
 awscrt>=0.16.0
 jmespath>=1.0.1
 urllib3>=1.26.0
 cryptography>=39.0.0
 pyyaml>=6.0
+uvicorn>=0.32.0
+playwright>=1.40.0

@@ -1,4 +1,4 @@
-FROM --platform=linux/arm64 python:3.9-slim
+FROM --platform=linux/arm64 python:3.12-slim
 
 # Set environment variables
 ENV PYTHONDONTWRITEBYTECODE=1
@@ -53,11 +53,13 @@ RUN pip install --no-cache-dir -r requirements.txt \
     && echo "Python version: $(python --version)" \
     && echo "pip version: $(pip --version)"
 
+RUN pip install mcp-server-aidd
+
 # Verify all tools are available in PATH
-RUN which python node npm tsc cdk npx uv aws uvx
+RUN which python node npm tsc cdk npx uv aws uvx mcp-server-aidd
 
 # Copy application code
-COPY index.py .
+COPY index.py process_definitions.py converse_agent.py converse_tools.py mcp_client.py ./
 
 Add agents /app/agents/
 
