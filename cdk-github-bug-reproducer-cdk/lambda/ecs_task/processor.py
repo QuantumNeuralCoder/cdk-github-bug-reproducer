@@ -10,7 +10,7 @@ from collections import defaultdict
 from typing import Any, Callable, Dict, List, Optional
 from dataclasses import dataclass
 
-from process_definitions import Process, ForEach, Task, ExecuteCode, process_context_memory_return_value
+from .process_definitions import Process, ForEach, Task, ExecuteCode, process_context_memory_return_value
 
 current_env = os.environ.copy()
 

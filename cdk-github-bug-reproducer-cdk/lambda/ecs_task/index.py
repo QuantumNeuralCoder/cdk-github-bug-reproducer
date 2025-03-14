@@ -23,10 +23,7 @@ from github import Github
 import sys
 import random
 import asyncio
-# Import process function from local processor.py file using a direct import
-# that doesn't rely on Python module structure
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
-from processor import process
+from .processor import process
 
 # Configure logging
 logging.basicConfig(
@@ -206,7 +203,7 @@ def upload_result_to_s3(issue_id, repo_name):
     s3_directory = f"{issue_id}/"
     s3_zip_key = f"{s3_directory}{zip_file_name}"
     s3_summary_key = f"{s3_directory}summary.txt"
-    
+
     # Create summary content
     summary_content = f"""
     GitHub Issue Processing Results
@@ -223,7 +220,7 @@ def upload_result_to_s3(issue_id, repo_name):
         if not os.path.exists(source_dir):
             logger.error(f"Source directory not found: {source_dir}")
             return None
-            
+
         # Create zip file of the directory
         logger.info(f"Creating zip file of directory: {source_dir}")
         shutil.make_archive(
@@ -232,7 +229,7 @@ def upload_result_to_s3(issue_id, repo_name):
             root_dir=os.path.dirname(source_dir),
             base_dir=os.path.basename(source_dir)
         )
-        
+
         # Upload the zip file to S3
         logger.info(f"Uploading zip file to S3: {s3_zip_key}")
         with open(temp_zip_path, 'rb') as zip_file:
@@ -242,7 +239,7 @@ def upload_result_to_s3(issue_id, repo_name):
                 Body=zip_file.read(),
                 ContentType='application/zip'
             )
-        
+
         # Upload the summary file to S3
         logger.info(f"Uploading summary file to S3: {s3_summary_key}")
         s3_client.put_object(
@@ -251,7 +248,7 @@ def upload_result_to_s3(issue_id, repo_name):
             Body=summary_content,
             ContentType='text/plain'
         )
-        
+
         # Clean up the temporary zip file
         os.remove(temp_zip_path)
         logger.info(f"Removed temporary zip file: {temp_zip_path}")

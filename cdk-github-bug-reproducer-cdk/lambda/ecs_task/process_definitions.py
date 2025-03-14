@@ -11,9 +11,9 @@ from typing import Any, Dict, List, Optional, Callable
 from mcp import StdioServerParameters, CallToolRequest
 from mcp.types import CallToolResult
 
-from converse_agent import ConverseAgent
-from converse_tools import ConverseToolManager
-from mcp_client import MCPClients
+from .converse_agent import ConverseAgent
+from .converse_tools import ConverseToolManager
+from .mcp_client import MCPClients
 
 # Set up a module-level logger
 logger = logging.getLogger(__name__)
