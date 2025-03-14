@@ -83,8 +83,11 @@ phases:
           ENV AWS_REGION=$AWS_REGION
           ENV AWS_ACCOUNT_ID=$AWS_ACCOUNT_ID
           ENV GITHUB_TOKEN=$GITHUB_TOKEN
+          
+          COPY setup.sh /workspace/setup.sh
+          RUN chmod +x /workspace/setup.sh
 
-          CMD ["./setup.sh"]
+          CMD ["/workspace/setup.sh"]
           EOF
 
       - echo "Dockerfile created successfully"
