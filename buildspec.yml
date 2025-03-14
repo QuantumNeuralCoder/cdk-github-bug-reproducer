@@ -6,21 +6,20 @@ phases:
       nodejs: 18
   pre_build:
     commands:
-      - echo "Logging into AWS ECR..."
-      - aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com
-      - export IMAGE_TAG="$AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ISSUE_NUMBER:latest"
-      - echo "Image tag set to: \"$IMAGE_TAG\""
+      - echo "🔹 Logging into AWS ECR..."
+      - aws ecr get-login-password --region "$AWS_REGION" | docker login --username AWS --password-stdin "$AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com"
+      - echo "✅ Image tag set to: $IMAGE_TAG"
   build:
     commands:
       - echo "🚀 Building CDK Issue Debug Environment for Issue #$ISSUE_NUMBER"
       - mkdir -p /workspace/cdk-app
       - cd /workspace/cdk-app
       - npm install -g aws-cdk
-      - cdk init --app $ISSUE_NUMBER --language=typescript
+      - cdk init --app "$ISSUE_NUMBER" --language=typescript
       - if [ ! -z "$ISSUE_METADATA" ]; then echo "$ISSUE_METADATA" > /workspace/cdk-app/issue-metadata.txt; fi
-      - echo "Building Docker Image: \"$IMAGE_TAG\""
+      - echo "🔹 Building Docker Image: $IMAGE_TAG"
       - docker build -t "$IMAGE_TAG" .
       - docker push "$IMAGE_TAG"
   post_build:
     commands:
-      - echo "Docker Image Pushed: \"$IMAGE_TAG\""
+      - echo "✅ Docker Image Pushed: $IMAGE_TAG"
