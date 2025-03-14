@@ -20,10 +20,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN curl -fsSL https://deb.nodesource.com/setup_${NODE_VERSION} | bash - \
     && apt-get update \
     && apt-get install -y nodejs \
-    && npm install -g npm@10.2.4
+    && npm install -g npm@10.2.4 \
+    && echo "Node.js version: $(node --version)" \
+    && echo "npm version: $(npm --version)"
 
 # Install TypeScript, AWS CDK CLI, and npx
-RUN npm install -g typescript@5.3.3 aws-cdk@2.126.0 npx@10.2.2
+RUN npm install -g typescript@5.3.3 aws-cdk@2.126.0 npx@10.2.2 \
+    && echo "TypeScript version: $(tsc --version)" \
+    && echo "AWS CDK version: $(cdk --version)" \
+    && echo "npx version: $(npx --version)"
 
 # Install uv (Python package installer)
 RUN curl -LsSf https://astral.sh/uv/install.sh | sh
@@ -31,18 +36,27 @@ RUN curl -LsSf https://astral.sh/uv/install.sh | sh
 # Add uv to PATH
 ENV PATH="/root/.cargo/bin:${PATH}"
 
+# Verify uv installation
+RUN uv --version
+
 # Install AWS CLI v2 for ARM64
 RUN curl "https://awscli.amazonaws.com/awscli-exe-linux-aarch64.zip" -o "awscliv2.zip" \
     && unzip awscliv2.zip \
     && ./aws/install \
-    && rm -rf aws awscliv2.zip
+    && rm -rf aws awscliv2.zip \
+    && echo "AWS CLI version: $(aws --version)"
 
 # Create app directory
 WORKDIR /app
 
-# Copy Python requirements and install using uv
+# Copy Python requirements and install
 COPY requirements.txt .
-RUN uv pip install --system -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt \
+    && echo "Python version: $(python --version)" \
+    && echo "pip version: $(pip --version)"
+
+# Verify all tools are available in PATH
+RUN which python node npm tsc cdk npx uv aws
 
 # Copy application code
 COPY index.py .
