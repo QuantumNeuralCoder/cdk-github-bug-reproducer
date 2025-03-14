@@ -111,3 +111,26 @@ phases:
   post_build:
     commands:
       - echo "Docker Image Pushed - $IMAGE_TAG"
+      - echo "Posting comment to GitHub Issue #$ISSUE_NUMBER"
+      - export ISSUE_COMMENT="#### Docker Debugging Environment Ready!\n\n"
+      - export ISSUE_COMMENT+="**To reproduce this issue, run the following commands:**\n\n"
+      - export ISSUE_COMMENT+="\`\`\`bash\n"
+      - export ISSUE_COMMENT+="docker pull $IMAGE_TAG\n\n"
+      - export ISSUE_COMMENT+="docker run --rm -it \\\n"
+      - export ISSUE_COMMENT+="    -e AWS_REGION=$AWS_REGION \\\n"
+      - export ISSUE_COMMENT+="    -e AWS_ACCOUNT_ID=$AWS_ACCOUNT_ID \\\n"
+      - export ISSUE_COMMENT+="    -e ISSUE_NUMBER=$ISSUE_NUMBER \\\n"
+      - export ISSUE_COMMENT+="    -v ~/.aws:/root/.aws \\\n"
+      - export ISSUE_COMMENT+="    $IMAGE_TAG\n"
+      - export ISSUE_COMMENT+="\`\`\`\n"
+      - export ISSUE_COMMENT+="_This environment was automatically created by AWS CodeBuild._"
+      # Post comment only if GITHUB_TOKEN is available
+      - if [ -z "$GITHUB_TOKEN" ]; then echo "GITHUB_TOKEN is missing, skipping GitHub comment."; else
+        echo "Posting comment to GitHub Issue #$ISSUE_NUMBER" &&
+        curl -X POST -H "Authorization: token $GITHUB_TOKEN" \
+        -H "Accept: application/vnd.github.v3+json" \
+        -d "{\"body\": \"$ISSUE_COMMENT\"}" \
+        "https://api.github.com/repos/QuantumNeuralCoder/cdk-github-bug-reproducer/issues/$ISSUE_NUMBER/comments" &&
+        echo "Comment posted successfully!";
+        fi
+        
