@@ -110,8 +110,6 @@ phases:
 
   post_build:
     commands:
-      post_build:
-    commands:
       - echo "Docker Image Pushed - $IMAGE_TAG"
       - echo "Posting comment to GitHub Issue #$ISSUE_NUMBER"
       - |
