@@ -11,7 +11,7 @@ phases:
       - echo "Image tag set to - $IMAGE_TAG"
   build:
     commands:
-      - echo "🚀 Building CDK Issue Debug Environment for Issue #$ISSUE_NUMBER"
+      - echo "Building CDK Issue Debug Env for Issue $ISSUE_NUMBER"
       - mkdir -p /workspace/cdk-app
       - cd /workspace/cdk-app
       - npm install -g aws-cdk
