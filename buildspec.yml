@@ -23,7 +23,7 @@ phases:
       - echo "Building CDK Issue Debug Env for Issue $ISSUE_NUMBER"
 
       # Prepare workspace
-      - mkdir -p /workspace/aws-cdk /workspace/cdk-app
+      - mkdir -p /workspace/aws-cdk /workspace/cdk-app /workspace/issue-app
 
       # Clone AWS CDK Repository
       - |
@@ -37,15 +37,15 @@ phases:
       # Read CDK version from issue metadata
       - |
           if [ ! -z "$ISSUE_METADATA" ]; then 
-            echo "$ISSUE_METADATA" > /workspace/cdk-app/issue-metadata.txt
+            echo "$ISSUE_METADATA" > /workspace/issue-app/issue-metadata.txt
           fi
           LATEST_CDK_VERSION=$(grep -oP 'aws-cdk-lib@\K[0-9]+\.[0-9]+\.[0-9]+' /workspace/cdk-app/issue-metadata.txt || echo "latest")
           echo "Installing AWS CDK version $LATEST_CDK_VERSION"
 
       # Initialize CDK App
       - echo "Initializing CDK App..."
-      - cd /workspace/cdk-app
       - npm install -g aws-cdk
+      - cd /workspace/cdk-app
       - cdk init app --language=typescript
 
       # Create the setup script dynamically
