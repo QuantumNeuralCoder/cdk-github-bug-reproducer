@@ -226,7 +226,7 @@ def _retrieve_issue_type(issue_data):
     return IssueType.BUG if is_bug else IssueType.FEATURE_REQUEST
 
 
-async def process(issue_id, repo_name):
+async def process(issue_id, repo_name, role_arn):
     # Get user input and check for exit commands
     memory = Memory()
 
@@ -318,6 +318,7 @@ If the issue was in deployment or runtime, please add in Readme the stack name y
             "github_issue_details": issue.generate_issue_prompt(),
             "issue_id": issue_id,
         },
+        profiles=[role_arn],
     )
 
     await process.run()

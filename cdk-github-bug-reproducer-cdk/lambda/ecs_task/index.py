@@ -378,7 +378,7 @@ def process_issue(message, receipt_handle):
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
             try:
-                loop.run_until_complete(process(issue_id, repo_name))
+                loop.run_until_complete(process(issue_id, repo_name, role_arn))
             finally:
                 loop.close()
 
