@@ -222,9 +222,10 @@ def acquire_account(task_id):
         }
 
     try:
-        # Query for available accounts
-        response = table.scan(
-            FilterExpression=Attr('status').eq(ACCOUNT_STATUS['AVAILABLE']),
+        # Query for available accounts using the status-index GSI
+        response = table.query(
+            IndexName='status-index',
+            KeyConditionExpression=Key('status').eq(ACCOUNT_STATUS['AVAILABLE']),
             Limit=1
         )
 

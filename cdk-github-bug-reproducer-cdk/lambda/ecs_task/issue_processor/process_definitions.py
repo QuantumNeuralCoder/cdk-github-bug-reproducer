@@ -480,31 +480,34 @@ class Process:
         logger.info("Starting Process ID: %s", self.process_id)
         summary = self.get_summary()
         i = 1
-        async with MCPClients(self.mcp_servers_params) as mcp_clients:
-            logger.info("initialize memory with process inputs")
-            mcp_servers_tools = await mcp_clients.get_available_tools()
-            func = None
-            # Register each available tool with the agent
-            for tools in mcp_servers_tools:
-                func = tools["call_tool"]
-                found = False
-                for tool in tools["tools_list"]:
-                    if tool.name == "add_or_update_memory_entry":
-                        found = True
+        try:
+            async with MCPClients(self.mcp_servers_params) as mcp_clients:
+                logger.info("initialize memory with process inputs")
+                mcp_servers_tools = await mcp_clients.get_available_tools()
+                func = None
+                # Register each available tool with the agent
+                for tools in mcp_servers_tools:
+                    func = tools["call_tool"]
+                    found = False
+                    for tool in tools["tools_list"]:
+                        if tool.name == "add_or_update_memory_entry":
+                            found = True
+                            break
+                    if found:
                         break
-                if found:
-                    break
 
-            for input_variable in self.inputs.keys():
-                logger.info(f"processing process input: {input_variable}")
-                await func("add_or_update_memory_entry", {
-                    "entry_key": input_variable,
-                    "value": self.inputs[input_variable]
-                })
+                for input_variable in self.inputs.keys():
+                    logger.info(f"processing process input: {input_variable}")
+                    await func("add_or_update_memory_entry", {
+                        "entry_key": input_variable,
+                        "value": self.inputs[input_variable]
+                    })
 
-            for step in self.steps:
-                await step.execute(summary, mcp_clients, str(i), func, self.profiles, {}, None)
-                i += 1
+                for step in self.steps:
+                    await step.execute(summary, mcp_clients, str(i), func, self.profiles, {}, None)
+                    i += 1
+        except:
+          print("An exception occurred while closing agents")
 
         logger.info("Completed Process ID: %s", self.process_id)
 

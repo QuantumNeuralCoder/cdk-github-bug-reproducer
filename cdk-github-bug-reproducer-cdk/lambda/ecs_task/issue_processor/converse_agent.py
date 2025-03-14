@@ -9,17 +9,17 @@ import datetime
 
 logger = logging.getLogger(__name__)
 
-def get_refreshable_session_from_role(role_arn, region='us-west-2', session_name='ConverseAgentSession', duration_seconds=10800):
+def get_refreshable_session_from_role(role_arn, region='us-west-2', session_name='ConverseAgentSession', duration_seconds=3600):
     """
     Create a boto3 session with refreshable credentials using role assumption.
     The credentials will auto-refresh when they expire.
-    
+
     Args:
         role_arn: The ARN of the role to assume
         region: AWS region
         session_name: Name for the role session
         duration_seconds: Duration of the session in seconds (max 3 hours = 10800)
-    
+
     Returns:
         A boto3 session with refreshable credentials
     """
@@ -32,10 +32,10 @@ def get_refreshable_session_from_role(role_arn, region='us-west-2', session_name
             RoleSessionName=session_name,
             DurationSeconds=duration_seconds
         )
-        
+
         credentials = response['Credentials']
         logger.info(f"Credentials refreshed, valid until: {credentials['Expiration']}")
-        
+
         return {
             'access_key': credentials['AccessKeyId'],
             'secret_key': credentials['SecretAccessKey'],
@@ -54,7 +54,7 @@ def get_refreshable_session_from_role(role_arn, region='us-west-2', session_name
     botocore_session = get_session()
     botocore_session._credentials = refreshable_credentials
     botocore_session.set_config_variable('region', region)
-    
+
     # Create a boto3 session from the botocore session
     return boto3.Session(botocore_session=botocore_session)
 
@@ -71,7 +71,7 @@ class ConverseAgent:
                 'mode': 'standard'
             }
         )
-        
+
         # Check if profile is a role ARN (starts with "arn:aws:iam::")
         if profile and profile.startswith("arn:aws:iam::"):
             # Use role assumption with refreshable credentials
@@ -80,13 +80,13 @@ class ConverseAgent:
                 role_arn=profile,
                 region=region,
                 session_name='ConverseAgentSession',
-                duration_seconds=10800  # 3 hours
+                duration_seconds=3600  # 3 hours
             )
         else:
             # Fall back to profile-based authentication
             logger.info(f"Using profile-based authentication: {profile}")
             session = boto3.Session(profile_name=profile)
-            
+
         self.client = session.client('bedrock-runtime', region_name=self.region, config=config)
         self.system_prompt = system_prompt
         self.messages = []
@@ -108,7 +108,7 @@ class ConverseAgent:
 
         self.messages.append(
             {
-                "role": "user", 
+                "role": "user",
                 "content": content
             }
         )
@@ -175,7 +175,7 @@ class ConverseAgent:
         except Exception as e:
             logger.info(f"profile {self.profile} ,Error invoking model: {e}")
             raise e
-    
+
     async def _handle_response(self, response):
         # Add the response to the conversation history
         self.messages.append(response['output']['message'])
@@ -232,7 +232,7 @@ class ConverseAgent:
                                 raise e
 
                 return await self.invoke(tool_response)
-                
+
             except KeyError as e:
                 raise ValueError(f"Missing required tool use field: {e}")
             except Exception as e:

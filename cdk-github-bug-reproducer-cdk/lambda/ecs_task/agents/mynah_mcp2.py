@@ -58,10 +58,10 @@ def get_refreshable_session(region_name="us-east-1"):
             RoleSessionName=ROLE_SESSION_NAME,
             DurationSeconds=ROLE_SESSION_DURATION
         )
-        
+
         credentials = response['Credentials']
         logger.info(f"Credentials refreshed, valid until: {credentials['Expiration']}")
-        
+
         return {
             'access_key': credentials['AccessKeyId'],
             'secret_key': credentials['SecretAccessKey'],
@@ -80,9 +80,18 @@ def get_refreshable_session(region_name="us-east-1"):
     botocore_session = get_session()
     botocore_session._credentials = refreshable_credentials
     botocore_session.set_config_variable('region', region_name)
-    
+
     # Create a boto3 session from the botocore session
     return boto3.Session(botocore_session=botocore_session)
+
+def get_logger(name):
+    """
+    Return a logger with the specified name.
+    This function ensures that the logging configuration is set up before returning the logger.
+    """
+    setup_logging()
+    logger = logging.getLogger(name)
+    return logger
 
 logger = get_logger(__name__)
 
@@ -90,7 +99,7 @@ logger = get_logger(__name__)
 DEFAULT_AWS_PROFILE = "ngde-abstractions-bedrock"
 ROLE_ARN = "arn:aws:iam::654654263977:role/Admin"
 ROLE_SESSION_NAME = "MynahSearchSession"
-ROLE_SESSION_DURATION = 10800  # 3 hours in seconds
+ROLE_SESSION_DURATION = 3600  # 3 hours in seconds
 
 def custom_retry_decorator(max_retries=5, initial_wait_time=1, backoff_factor=1.5):
     def decorator(func):
@@ -324,7 +333,7 @@ class MynahSearchService:
         # Use refreshable credentials with role assumption instead of profile
         self.session = get_refreshable_session(region_name=config.region)
         logger.info(f"Created session with refreshable credentials for region {config.region}")
-        
+
         self.region = config.region
         self.endpoint = config.endpoint
         self.service_name = config.service_name
@@ -515,7 +524,7 @@ async def search_aws_documentations(query: str, max_results: int = 5) -> str:
     response = search_service.search(query=query, max_results=max_results)
     formatted_results = formatter.format_suggestions(response)
     return formatted_results
-    
+
 
 if __name__ == "__main__":
     # Initialize and run the server
