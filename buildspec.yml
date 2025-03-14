@@ -11,12 +11,12 @@ phases:
       - aws ecr get-login-password --region "$AWS_REGION" | docker login --username AWS --password-stdin "$AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com"
       - echo "Image tag set to - $IMAGE_TAG"
       - |
-          if ! aws ecr describe-repositories --repository-names "cdk-debug-env-$ISSUE_NUMBER" --region $AWS_REGION >/dev/null 2>&1; then
-            echo "Creating ECR repository: cdk-debug-env-$ISSUE_NUMBER"
-            aws ecr create-repository --repository-name "cdk-debug-env-$ISSUE_NUMBER" --region $AWS_REGION
-          else
-            echo "ECR repository already exists: cdk-debug-env-$ISSUE_NUMBER"
-          fi
+        if ! aws ecr describe-repositories --repository-names "cdk-debug-env-$ISSUE_NUMBER" --region $AWS_REGION >/dev/null 2>&1; then
+          echo "Creating ECR repository: cdk-debug-env-$ISSUE_NUMBER"
+          aws ecr create-repository --repository-name "cdk-debug-env-$ISSUE_NUMBER" --region $AWS_REGION
+        else
+          echo "ECR repository already exists: cdk-debug-env-$ISSUE_NUMBER"
+        fi
 
   build:
     commands:
@@ -27,22 +27,22 @@ phases:
 
       # Clone AWS CDK Repository
       - |
-          if [ ! -d "/workspace/aws-cdk/.git" ]; then
-            echo "Cloning AWS CDK repository..."
-            git clone https://github.com/aws/aws-cdk.git /workspace/aws-cdk
-          else
-            echo "AWS CDK repository already exists."
-          fi
+        if [ ! -d "/workspace/aws-cdk/.git" ]; then
+          echo "Cloning AWS CDK repository..."
+          git clone https://github.com/aws/aws-cdk.git /workspace/aws-cdk
+        else
+          echo "AWS CDK repository already exists."
+        fi
 
       # Read CDK version from issue metadata
       - |
-          if [ ! -z "$ISSUE_METADATA" ]; then 
-            echo "$ISSUE_METADATA" > /workspace/issue-app/issue-metadata.txt
-          fi
-          LATEST_CDK_VERSION=$(grep -oP 'aws-cdk-lib@\K[0-9]+\.[0-9]+\.[0-9]+' /workspace/cdk-app/issue-metadata.txt || echo "latest")
-          echo "Installing AWS CDK version $LATEST_CDK_VERSION"
-          cd /workspace/issue-app
-          npm install aws-cdk-lib@$LATEST_CDK_VERSION
+        if [ ! -z "$ISSUE_METADATA" ]; then 
+          echo "$ISSUE_METADATA" > /workspace/issue-app/issue-metadata.txt
+        fi
+        LATEST_CDK_VERSION=$(grep -oP 'aws-cdk-lib@\K[0-9]+\.[0-9]+\.[0-9]+' /workspace/cdk-app/issue-metadata.txt || echo "latest")
+        echo "Installing AWS CDK version $LATEST_CDK_VERSION"
+        cd /workspace/issue-app
+        npm install aws-cdk-lib@$LATEST_CDK_VERSION
 
       # Initialize CDK App
       - echo "Initializing CDK App..."
@@ -52,19 +52,19 @@ phases:
 
       # Create the setup script dynamically
       - |
-          cat <<'EOF' > /workspace/setup.sh
-          #!/bin/bash
-          echo "Setting up the AWS CDK Issue Environment..."
+        cat <<'EOF' > /workspace/setup.sh
+        #!/bin/bash
+        echo "Setting up the AWS CDK Issue Environment..."
 
-          # Ensure AWS CLI is configured
-          if ! aws sts get-caller-identity >/dev/null 2>&1; then
-            echo "AWS credentials not found. Ensure ~/.aws is mounted."
-            exit 1
-          fi
+        # Ensure AWS CLI is configured
+        if ! aws sts get-caller-identity >/dev/null 2>&1; then
+          echo "AWS credentials not found. Ensure ~/.aws is mounted."
+          exit 1
+        fi
 
-          echo "Issue environment setup complete!"
-          exec /bin/bash  # Keep container open for interactive debugging
-          EOF
+        echo "Issue environment setup complete!"
+        exec /bin/bash  # Keep container open for interactive debugging
+        EOF
 
       # Ensure script permissions
       - chmod +x /workspace/setup.sh
@@ -72,33 +72,33 @@ phases:
 
       # Prepare Dockerfile
       - |
-          cat <<EOF > /workspace/Dockerfile
-          FROM public.ecr.aws/docker/library/node:18
+        cat <<EOF > /workspace/Dockerfile
+        FROM public.ecr.aws/docker/library/node:18
 
-          RUN apt-get update && apt-get install -y git unzip python3-pip awscli jq
+        RUN apt-get update && apt-get install -y git unzip python3-pip awscli jq
 
-          WORKDIR /workspace
+        WORKDIR /workspace
 
-          ENV AWS_REGION=$AWS_REGION
-          ENV AWS_ACCOUNT_ID=$AWS_ACCOUNT_ID
-          ENV GITHUB_TOKEN=$GITHUB_TOKEN
-          
-          # Copy the cloned AWS CDK repo
-          COPY aws-cdk /workspace/aws-cdk/
+        ENV AWS_REGION=$AWS_REGION
+        ENV AWS_ACCOUNT_ID=$AWS_ACCOUNT_ID
+        ENV GITHUB_TOKEN=$GITHUB_TOKEN
+        
+        # Copy the cloned AWS CDK repo
+        COPY aws-cdk /workspace/aws-cdk/
 
-          # Copy the initialized CDK app
-          COPY cdk-app /workspace/cdk-app/
+        # Copy the initialized CDK app
+        COPY cdk-app /workspace/cdk-app/
 
-          # Copy the initialized ISSUE app
-          COPY issue-app /workspace/issue-app/
+        # Copy the initialized ISSUE app
+        COPY issue-app /workspace/issue-app/
 
-          # Copy the setup script
-          COPY setup.sh /workspace/
+        # Copy the setup script
+        COPY setup.sh /workspace/
 
-          RUN chmod +x /workspace/setup.sh
+        RUN chmod +x /workspace/setup.sh
 
-          CMD ["/workspace/setup.sh"]
-          EOF
+        CMD ["/workspace/setup.sh"]
+        EOF
 
       - echo "Dockerfile created successfully"
 
@@ -113,7 +113,7 @@ phases:
       - echo "Docker Image Pushed - $IMAGE_TAG"
       - echo "Posting comment to GitHub Issue #$ISSUE_NUMBER"
 
-    # Write comment body using a proper heredoc with no indentation
+      # Write comment body using a proper heredoc
       - cat <<EOF > /tmp/comment_body.txt
 #### Docker Debugging Environment Ready!
 
@@ -137,12 +137,12 @@ EOF
       - rm /tmp/comment_body.txt
 
       - |
-      if [ -z "$GITHUB_TOKEN" ]; then
-        echo "GITHUB_TOKEN is missing, skipping GitHub comment."
-      else
-        curl -X POST -H "Authorization: token $GITHUB_TOKEN" \
-            -H "Accept: application/vnd.github.v3+json" \
-            -d "{\"body\": \"$COMMENT_BODY\"}" \
-            "https://api.github.com/repos/QuantumNeuralCoder/cdk-github-bug-reproducer/issues/$ISSUE_NUMBER/comments"
-        echo "Comment posted successfully!"
-      fi
+        if [ -z "$GITHUB_TOKEN" ]; then
+          echo "GITHUB_TOKEN is missing, skipping GitHub comment."
+        else
+          curl -X POST -H "Authorization: token $GITHUB_TOKEN" \
+              -H "Accept: application/vnd.github.v3+json" \
+              -d "{\"body\": \"$COMMENT_BODY\"}" \
+              "https://api.github.com/repos/QuantumNeuralCoder/cdk-github-bug-reproducer/issues/$ISSUE_NUMBER/comments"
+          echo "Comment posted successfully!"
+        fi
