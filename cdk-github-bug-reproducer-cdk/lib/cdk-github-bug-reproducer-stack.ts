@@ -460,12 +460,6 @@ export class CdkGithubBugReproducerStack extends cdk.Stack {
             targets: [new targets.LambdaFunction(ecsScalingUpdaterLambda)]
         });
 
-        // Schedule the queue monitor to run every 5 minutes
-        new events.Rule(this, 'ScheduledBaseTasksScaleEventsRule', {
-            schedule: events.Schedule.rate(cdk.Duration.minutes(5)),
-            targets: [new targets.LambdaFunction(ecsScalingUpdaterLambda)]
-        });
-
         // Outputs
         new cdk.CfnOutput(this, 'APIGatewayURL', {
             value: api.url,

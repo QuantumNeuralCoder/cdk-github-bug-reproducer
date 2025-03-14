@@ -43,6 +43,13 @@ def lambda_handler(event, context):
             AttributeNames=['ApproximateNumberOfMessages']
         )
         message_count = int(queue_response['Attributes']['ApproximateNumberOfMessages'])
+
+        queue_response = sqs.get_queue_attributes(
+            QueueUrl=QUEUE_URL,
+            AttributeNames=['ApproximateNumberOfMessagesNotVisible']
+        )
+        message_count = message_count + int(queue_response['Attributes']['ApproximateNumberOfMessagesNotVisible'])
+
         logger.info(f"Approximate number of messages in queue: {message_count}")
 
         # Set desired capacity to 0 if no messages, otherwise set to min(message_count, total_accounts)

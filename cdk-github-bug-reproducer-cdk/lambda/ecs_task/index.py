@@ -165,7 +165,7 @@ def release_account(account_id, task_id):
         logger.error(f"Error releasing account: {str(e)}")
         return False
 
-def upload_result_to_s3(issue_id, repo_name):
+def upload_result_to_s3(issue_number, issue_id, repo_name):
     """
     Upload the GitHub issue reproduction code as a zip file to S3
     """
@@ -174,7 +174,7 @@ def upload_result_to_s3(issue_id, repo_name):
         return None
 
     # Define paths and file names
-    source_dir = f"/app/gh_issues/gh_issue_{issue_id}"
+    source_dir = f"/app/gh_issues/gh_issue_{issue_number}"
     zip_file_name = f"{issue_id}_results.zip"
     temp_zip_path = f"/tmp/{zip_file_name}"
     s3_directory = f"{issue_id}/"
@@ -394,6 +394,7 @@ def process_issue(message, receipt_handle):
             asyncio.set_event_loop(loop)
             try:
                 loop.run_until_complete(process(issue_number, repo_name, role_arn, get_github_token()))
+                logger.info("Successfully processed issue %s", issue_id)
             except Exception as e:
                 logger.error(f"Process function failed with error: {str(e)}")
                 if hasattr(e, '__traceback__'):
@@ -404,7 +405,7 @@ def process_issue(message, receipt_handle):
                 loop.close()
 
             # Upload result to S3
-            result_url = upload_result_to_s3(issue_id, repo_name)
+            result_url = upload_result_to_s3(issue_number, issue_id, repo_name)
             if not result_url:
                 logger.error("Failed to upload result to S3")
                 return False

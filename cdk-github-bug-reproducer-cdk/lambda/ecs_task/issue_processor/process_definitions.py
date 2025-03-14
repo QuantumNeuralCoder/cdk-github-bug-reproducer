@@ -507,7 +507,7 @@ class Process:
                     await step.execute(summary, mcp_clients, str(i), func, self.profiles, {}, None)
                     i += 1
         except:
-          print("An exception occurred while closing agents")
+            logger.info("An exception occurred while closing agents")
 
         logger.info("Completed Process ID: %s", self.process_id)
 
