@@ -1,1 +1,80 @@
-lambda/venv/
+# CDK-specific files
+cdk.out/
+cdk.context.json
+.cdk-staging/
+.cdk.staging/
+cdk-outputs.json
+
+# Node.js dependencies
+node_modules/
+npm-debug.log
+yarn-debug.log
+yarn-error.log
+package-lock.json
+yarn.lock
+
+# Python virtual environments
+venv/
+env/
+.env/
+.venv/
+ENV/
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+*.so
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+.hypothesis/
+.egg-info/
+.installed.cfg
+*.egg
+
+# IDE files
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+.project
+.classpath
+.settings/
+*.sublime-workspace
+*.sublime-project
+
+# AWS SAM
+.aws-sam/
+samconfig.toml
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Local development
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# TypeScript
+*.js.map
+*.d.ts
+tsconfig.tsbuildinfo
+
+# Build outputs
+dist/
+build/
+out/
+.next/
+
+# Temporary files
+tmp/
+temp/
+.tmp/

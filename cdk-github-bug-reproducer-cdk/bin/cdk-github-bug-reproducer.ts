@@ -1,20 +1,21 @@
 #!/usr/bin/env node
 import * as cdk from 'aws-cdk-lib';
 import { CdkGithubBugReproducerStack } from '../lib/cdk-github-bug-reproducer-stack';
+import { AlarmPeriodAspect } from '../lib/alarm-period-aspect';
 
 const app = new cdk.App();
-new CdkGithubBugReproducerStack(app, 'CdkGithubBugReproducerStack', {
-  /* If you don't specify 'env', this stack will be environment-agnostic.
-   * Account/Region-dependent features and context lookups will not work,
-   * but a single synthesized template can be deployed anywhere. */
 
-  /* Uncomment the next line to specialize this stack for the AWS Account
-   * and Region that are implied by the current CLI configuration. */
-  // env: { account: process.env.CDK_DEFAULT_ACCOUNT, region: process.env.CDK_DEFAULT_REGION },
+// Get GitHub token and repo from context if provided
+const githubToken = app.node.tryGetContext('github-token');
+const githubRepo = app.node.tryGetContext('github-repo');
 
-  /* Uncomment the next line if you know exactly what Account and Region you
-   * want to deploy the stack to. */
-  // env: { account: '123456789012', region: 'us-east-1' },
-
-  /* For more information, see https://docs.aws.amazon.com/cdk/latest/guide/environments.html */
+const stack = new CdkGithubBugReproducerStack(app, 'CdkGithubBugReproducerStack', {
+  githubToken: githubToken,
+  githubRepo: githubRepo
 });
+
+// Apply the alarm period aspect to the stack
+cdk.Aspects.of(stack).add(new AlarmPeriodAspect());
+
+// Log that the aspect has been applied
+console.log('Applied AlarmPeriodAspect to set all CloudWatch alarm periods to 30 seconds');
