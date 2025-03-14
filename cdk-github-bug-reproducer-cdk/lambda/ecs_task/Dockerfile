@@ -47,6 +47,8 @@ RUN curl "https://awscli.amazonaws.com/awscli-exe-linux-aarch64.zip" -o "awscliv
 # Create app directory
 WORKDIR /app
 
+RUN mkdir /app/gh_issues
+
 # Copy Python requirements and install
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt \

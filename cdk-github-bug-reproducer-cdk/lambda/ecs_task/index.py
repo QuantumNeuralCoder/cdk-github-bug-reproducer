@@ -21,6 +21,8 @@ from botocore.exceptions import ClientError
 from github import Github
 import sys
 import random
+import asyncio
+from processor import process
 
 # Configure logging
 logging.basicConfig(
@@ -185,34 +187,6 @@ def release_account(account_id, task_id):
         logger.error(f"Error releasing account: {str(e)}")
         return False
 
-def assume_role(role_arn):
-    """
-    Assume a cross-account role
-    """
-    if not role_arn:
-        logger.error("Role ARN not provided")
-        return None
-
-    try:
-        response = sts_client.assume_role(
-            RoleArn=role_arn,
-            RoleSessionName=f"GithubIssueProcessor-{int(time.time())}",
-            DurationSeconds=3600
-        )
-
-        credentials = response['Credentials']
-        logger.info(f"Successfully assumed role {role_arn}")
-
-        return {
-            'aws_access_key_id': credentials['AccessKeyId'],
-            'aws_secret_access_key': credentials['SecretAccessKey'],
-            'aws_session_token': credentials['SessionToken']
-        }
-
-    except Exception as e:
-        logger.error(f"Error assuming role {role_arn}: {str(e)}")
-        return None
-
 def upload_result_to_s3(issue_id, repo_name):
     """
     Upload a result file to S3
@@ -333,7 +307,7 @@ def delete_message(receipt_handle, message_id=None):
         )
 
         logger.info("Successfully deleted message from queue")
-        
+
         # Publish an event to EventBridge for scaling
         if message_id:
             try:
@@ -355,7 +329,7 @@ def delete_message(receipt_handle, message_id=None):
             except Exception as e:
                 logger.error(f"Error publishing event: {str(e)}")
                 # Don't fail the operation if event publishing fails
-        
+
         return True
 
     except Exception as e:
@@ -371,7 +345,7 @@ def process_issue(message, receipt_handle):
         issue_number = message.get('issue_number')
         repo_name = message.get('repository')
         message_id = None
-        
+
         # Try to get the message ID from the receipt handle (for EventBridge event)
         try:
             response = sqs_client.list_queue_tags(
@@ -400,13 +374,13 @@ def process_issue(message, receipt_handle):
         logger.info(f"Acquired account {account_id} with role {role_arn}")
 
         try:
-            # Assume the role
-            credentials = assume_role(role_arn)
-            if not credentials:
-                logger.error("Failed to assume role")
-                return False
-
-            logger.info("Successfully assumed role")
+            # Create an event loop and run the async process function to completion
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            try:
+                loop.run_until_complete(process(issue_id, repo_name))
+            finally:
+                loop.close()
 
             # Upload result to S3
             result_url = upload_result_to_s3(issue_id, repo_name)
