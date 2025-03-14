@@ -162,34 +162,13 @@ Issue Comments:
 </github_issue>
 """
 
-
-def get_github_token():
-    """
-    Retrieve GitHub token from AWS Secrets Manager
-    """
-    if not GITHUB_TOKEN_SECRET_ARN:
-        logger.warning("GitHub token secret ARN not provided")
-        return None
-
-    try:
-        response = secretsmanager.get_secret_value(SecretId=GITHUB_TOKEN_SECRET_ARN)
-        if 'SecretString' in response:
-            return response['SecretString']
-        else:
-            logger.warning("GitHub token not found in secret")
-            return None
-    except Exception as e:
-        logger.error(f"Error retrieving GitHub token: {str(e)}")
-        return None
-
-GH_TOKEN = get_github_token()
 BUG_LABEL = "bug"
 FEATURE_REQUEST_LABEL = "feature-request"
 
 
-def retrieve_github_issue(repo:str, issue_number: str) -> GithubIssue:
+def retrieve_github_issue(repo:str, issue_number: str, gh_token:str) -> GithubIssue:
     url = f"https://api.github.com/repos/{repo}/issues/{issue_number}"
-    headers = {"Authorization": f"token {GH_TOKEN}"}
+    headers = {"Authorization": f"token {gh_token}"}
     response = requests.get(url, headers=headers)
 
     if response.status_code == 200:
@@ -198,16 +177,16 @@ def retrieve_github_issue(repo:str, issue_number: str) -> GithubIssue:
             issue_number=issue_data["number"],
             issue_title=issue_data["title"],
             issue_body=issue_data["body"],
-            issue_comments=_retrieve_issue_comments(issue_data),
+            issue_comments=_retrieve_issue_comments(issue_data, gh_token),
             issue_type=_retrieve_issue_type(issue_data),
         )
     else:
         raise Exception(f"Failed to fetch issue {issue_number}: {response.status_code}")
 
-def _retrieve_issue_comments(issue_data) -> List[IssueComment]:
+def _retrieve_issue_comments(issue_data, gh_token) -> List[IssueComment]:
     if issue_data["comments"] <= 0:
         return []
-    headers = {"Authorization": f"token {GH_TOKEN}"}
+    headers = {"Authorization": f"token {gh_token}"}
     issue_comments = []
     comments_url = issue_data["comments_url"]
     comments_response = requests.get(comments_url, headers=headers)
@@ -226,11 +205,11 @@ def _retrieve_issue_type(issue_data):
     return IssueType.BUG if is_bug else IssueType.FEATURE_REQUEST
 
 
-async def process(issue_id, repo_name, role_arn):
+async def process(issue_id, repo_name, role_arn, gh_token):
     # Get user input and check for exit commands
     memory = Memory()
 
-    issue = retrieve_github_issue(repo_name, issue_id)
+    issue = retrieve_github_issue(repo_name, issue_id, gh_token)
     if issue.issue_type != IssueType.BUG:
         logger.info("Issue %s is not a bug, it is a %s", issue_id, issue.issue_type)
         logger.info("No need to continue processing. Exiting...")

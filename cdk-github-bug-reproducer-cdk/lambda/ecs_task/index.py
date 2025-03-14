@@ -23,7 +23,7 @@ from github import Github
 import sys
 import random
 import asyncio
-from .processor import process
+from issue_processor.processor import process
 
 # Configure logging
 logging.basicConfig(
@@ -46,29 +46,6 @@ RESULTS_BUCKET = os.environ.get('RESULTS_BUCKET')
 GITHUB_TOKEN_SECRET_ARN = os.environ.get('GITHUB_TOKEN_SECRET_ARN')
 QUEUE_URL = os.environ.get('QUEUE_URL')
 EVENT_BUS_NAME = os.environ.get('EVENT_BUS_NAME', 'default')
-from github import Github
-import sys
-import random
-
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-logger = logging.getLogger(__name__)
-
-# Initialize AWS clients
-lambda_client = boto3.client('lambda')
-s3_client = boto3.client('s3')
-sts_client = boto3.client('sts')
-secretsmanager = boto3.client('secretsmanager')
-sqs_client = boto3.client('sqs')
-
-# Environment variables
-ACCOUNT_MANAGER_FUNCTION_ARN = os.environ.get('ACCOUNT_MANAGER_FUNCTION_ARN')
-RESULTS_BUCKET = os.environ.get('RESULTS_BUCKET')
-GITHUB_TOKEN_SECRET_ARN = os.environ.get('GITHUB_TOKEN_SECRET_ARN')
-QUEUE_URL = os.environ.get('QUEUE_URL')
 
 # Constants
 MAX_ACCOUNT_ACQUIRE_RETRIES = 60  # Maximum number of retries to acquire an account
@@ -416,7 +393,13 @@ def process_issue(message, receipt_handle):
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
             try:
-                loop.run_until_complete(process(issue_id, repo_name, role_arn))
+                loop.run_until_complete(process(issue_number, repo_name, role_arn, get_github_token()))
+            except Exception as e:
+                logger.error(f"Process function failed with error: {str(e)}")
+                if hasattr(e, '__traceback__'):
+                    import traceback
+                    logger.error("Full traceback:\n%s", ''.join(traceback.format_tb(e.__traceback__)))
+                raise  # Re-raise the exception to mark the task as failed
             finally:
                 loop.close()
 

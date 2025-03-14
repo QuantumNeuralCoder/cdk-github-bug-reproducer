@@ -61,8 +61,9 @@ RUN pip install mcp-server-aidd
 RUN which python node npm tsc cdk npx uv aws uvx mcp-server-aidd
 
 # Copy application code
-COPY index.py process_definitions.py converse_agent.py converse_tools.py mcp_client.py ./
+COPY index.py ./
 
+Add issue_processor /app/issue_processor/
 Add agents /app/agents/
 
 # Set the entrypoint
