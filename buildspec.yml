@@ -112,34 +112,37 @@ phases:
     commands:
       - echo "Docker Image Pushed - $IMAGE_TAG"
       - echo "Posting comment to GitHub Issue #$ISSUE_NUMBER"
-      - |
-        cat << EOF > /tmp/comment_body.txt
-        #### Docker Debugging Environment Ready!
 
-        **To reproduce this issue, run the following commands:**
+      # Write comment body using a proper heredoc with no indentation
+      - cat <<EOF > /tmp/comment_body.txt
+  #### Docker Debugging Environment Ready!
 
-        \`\`\`bash
-        docker pull $IMAGE_TAG
+  **To reproduce this issue, run the following commands:**
 
-        docker run --rm -it \\
-            -e AWS_REGION=$AWS_REGION \\
-            -e AWS_ACCOUNT_ID=$AWS_ACCOUNT_ID \\
-            -e ISSUE_NUMBER=$ISSUE_NUMBER \\
-            -v ~/.aws:/root/.aws \\
-            $IMAGE_TAG
-        \`\`\`
+  \`\`\`bash
+  docker pull $IMAGE_TAG
 
-        _This environment was automatically created by AWS CodeBuild._
-        EOF
-      - COMMENT_BODY=$(cat /tmp/comment_body.txt)
+  docker run --rm -it \\
+      -e AWS_REGION=$AWS_REGION \\
+      -e AWS_ACCOUNT_ID=$AWS_ACCOUNT_ID \\
+      -e ISSUE_NUMBER=$ISSUE_NUMBER \\
+      -v ~/.aws:/root/.aws \\
+      $IMAGE_TAG
+  \`\`\`
+
+  _This environment was automatically created by AWS CodeBuild._
+  EOF
+
+      - COMMENT_BODY="$(cat /tmp/comment_body.txt)"
       - rm /tmp/comment_body.txt
+
       - |
-        if [ -z "$GITHUB_TOKEN" ]; then 
-          echo "GITHUB_TOKEN is missing, skipping GitHub comment."; 
+        if [ -z "$GITHUB_TOKEN" ]; then
+          echo "GITHUB_TOKEN is missing, skipping GitHub comment."
         else
           curl -X POST -H "Authorization: token $GITHUB_TOKEN" \
               -H "Accept: application/vnd.github.v3+json" \
               -d "{\"body\": \"$COMMENT_BODY\"}" \
-              "https://api.github.com/repos/QuantumNeuralCoder/cdk-github-bug-reproducer/issues/$ISSUE_NUMBER/comments" &&
-          echo "Comment posted successfully!";
+              "https://api.github.com/repos/QuantumNeuralCoder/cdk-github-bug-reproducer/issues/$ISSUE_NUMBER/comments"
+          echo "Comment posted successfully!"
         fi
