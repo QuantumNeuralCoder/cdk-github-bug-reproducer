@@ -41,6 +41,8 @@ phases:
           fi
           LATEST_CDK_VERSION=$(grep -oP 'aws-cdk-lib@\K[0-9]+\.[0-9]+\.[0-9]+' /workspace/cdk-app/issue-metadata.txt || echo "latest")
           echo "Installing AWS CDK version $LATEST_CDK_VERSION"
+          cd /workspace/issue-app
+          npm install aws-cdk-lib@$LATEST_CDK_VERSION
 
       # Initialize CDK App
       - echo "Initializing CDK App..."
