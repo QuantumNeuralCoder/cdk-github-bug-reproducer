@@ -9,6 +9,13 @@ phases:
       - echo "Logging into AWS ECR"
       - aws ecr get-login-password --region "$AWS_REGION" | docker login --username AWS --password-stdin "$AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com"
       - echo "Image tag set to - $IMAGE_TAG"
+      - |
+          if ! aws ecr describe-repositories --repository-names "cdk-debug-env-$ISSUE_NUMBER" --region $AWS_REGION >/dev/null 2>&1; then
+            echo "🔹 Creating ECR repository: cdk-debug-env-$ISSUE_NUMBER"
+            aws ecr create-repository --repository-name "cdk-debug-env-$ISSUE_NUMBER" --region $AWS_REGION
+          else
+            echo "ECR repository already exists: cdk-debug-env-$ISSUE_NUMBER"
+          fi
   build:
     commands:
       - echo "Building CDK Issue Debug Env for Issue $ISSUE_NUMBER"
