@@ -113,19 +113,26 @@ phases:
       - echo "Docker Image Pushed - $IMAGE_TAG"
       - echo "Posting comment to GitHub Issue #$ISSUE_NUMBER"
       - |
-        COMMENT_BODY=$(printf "#### Docker Debugging Environment Ready!\n\n"
-          " **To reproduce this issue, run the following commands:**\n\n"
-          " \`\`\`bash\n"
-          " docker pull $IMAGE_TAG\n\n"
-          " docker run --rm -it \\\n"
-          "     -e AWS_REGION=$AWS_REGION \\\n"
-          "     -e AWS_ACCOUNT_ID=$AWS_ACCOUNT_ID \\\n"
-          "     -e ISSUE_NUMBER=$ISSUE_NUMBER \\\n"
-          "     -v ~/.aws:/root/.aws \\\n"
-          "     $IMAGE_TAG\n"
-          " \`\`\`\n"
-          " _This environment was automatically created by AWS CodeBuild._"
-        )
+        cat << EOF > /tmp/comment_body.txt
+        #### Docker Debugging Environment Ready!
+
+        **To reproduce this issue, run the following commands:**
+
+        \`\`\`bash
+        docker pull $IMAGE_TAG
+
+        docker run --rm -it \\
+            -e AWS_REGION=$AWS_REGION \\
+            -e AWS_ACCOUNT_ID=$AWS_ACCOUNT_ID \\
+            -e ISSUE_NUMBER=$ISSUE_NUMBER \\
+            -v ~/.aws:/root/.aws \\
+            $IMAGE_TAG
+        \`\`\`
+
+        _This environment was automatically created by AWS CodeBuild._
+        EOF
+      - COMMENT_BODY=$(cat /tmp/comment_body.txt)
+      - rm /tmp/comment_body.txt
       - |
         if [ -z "$GITHUB_TOKEN" ]; then 
           echo "GITHUB_TOKEN is missing, skipping GitHub comment."; 
