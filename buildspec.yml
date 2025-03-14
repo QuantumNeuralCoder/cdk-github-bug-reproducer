@@ -64,11 +64,9 @@ phases:
           exec /bin/bash  # Keep container open for interactive debugging
           EOF
 
-      - chmod +x /workspace/setup.sh
       - echo "setup.sh created successfully"
-      - echo "setup.sh created successfully"
-      - cp /workspace/setup.sh /workspace/cdk-app/setup.sh
-      - echo "Copied setup.sh into /workspace/cdk-app/"
+      - cp /workspace/setup.sh .
+      - echo "Copied setup.sh into build context"
 
       - |
           cat <<EOF > /workspace/cdk-app/Dockerfile
@@ -84,7 +82,7 @@ phases:
           ENV AWS_ACCOUNT_ID=$AWS_ACCOUNT_ID
           ENV GITHUB_TOKEN=$GITHUB_TOKEN
           
-          COPY setup.sh /workspace/setup.sh
+          COPY setup.sh /workspace/
           RUN chmod +x /workspace/setup.sh
 
           CMD ["/workspace/setup.sh"]

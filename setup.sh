@@ -29,7 +29,7 @@ fi
 S3_BUCKET="cdkgithubbugreproducerstac-cdkissuesbucket1dde9f2a-sysnvpcukvfo"
 ISSUE_METADATA_FILE="s3://$S3_BUCKET/issues/$ISSUE_NUMBER.txt"
 
-echo "🔹 Retrieving issue metadata from $ISSUE_METADATA_FILE..."
+echo "🔹  from $ISSUE_METADATA_FILE..."
 aws s3 cp "$ISSUE_METADATA_FILE" "/tmp/$ISSUE_NUMBER.txt" --quiet
 
 if [ $? -ne 0 ]; then
