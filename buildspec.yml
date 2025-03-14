@@ -4,6 +4,7 @@ phases:
   install:
     runtime-versions:
       nodejs: 18
+
   pre_build:
     commands:
       - echo "Logging into AWS ECR"
@@ -11,16 +12,43 @@ phases:
       - echo "Image tag set to - $IMAGE_TAG"
       - |
           if ! aws ecr describe-repositories --repository-names "cdk-debug-env-$ISSUE_NUMBER" --region $AWS_REGION >/dev/null 2>&1; then
-            echo "🔹 Creating ECR repository: cdk-debug-env-$ISSUE_NUMBER"
+            echo "Creating ECR repository: cdk-debug-env-$ISSUE_NUMBER"
             aws ecr create-repository --repository-name "cdk-debug-env-$ISSUE_NUMBER" --region $AWS_REGION
           else
             echo "ECR repository already exists: cdk-debug-env-$ISSUE_NUMBER"
           fi
+
   build:
     commands:
       - echo "Building CDK Issue Debug Env for Issue $ISSUE_NUMBER"
-      - mkdir -p /workspace/cdk-app
-      - if [ ! -z "$ISSUE_METADATA" ]; then echo "$ISSUE_METADATA" > /workspace/cdk-app/issue-metadata.txt; fi
+
+      # Prepare workspace
+      - mkdir -p /workspace/aws-cdk /workspace/cdk-app
+
+      # Clone AWS CDK Repository
+      - |
+          if [ ! -d "/workspace/aws-cdk/.git" ]; then
+            echo "Cloning AWS CDK repository..."
+            git clone https://github.com/aws/aws-cdk.git /workspace/aws-cdk
+          else
+            echo "AWS CDK repository already exists."
+          fi
+
+      # Read CDK version from issue metadata
+      - |
+          if [ ! -z "$ISSUE_METADATA" ]; then 
+            echo "$ISSUE_METADATA" > /workspace/cdk-app/issue-metadata.txt
+          fi
+          LATEST_CDK_VERSION=$(grep -oP 'aws-cdk-lib@\K[0-9]+\.[0-9]+\.[0-9]+' /workspace/cdk-app/issue-metadata.txt || echo "latest")
+          echo "Installing AWS CDK version $LATEST_CDK_VERSION"
+
+      # Initialize CDK App
+      - echo "Initializing CDK App..."
+      - cd /workspace/cdk-app
+      - npm install -g aws-cdk
+      - cdk init app --language=typescript
+
+      # Create the setup script dynamically
       - |
           cat <<'EOF' > /workspace/setup.sh
           #!/bin/bash
@@ -32,57 +60,36 @@ phases:
             exit 1
           fi
 
-          # Create necessary directories
-          mkdir -p /workspace/aws-cdk /workspace/issue-app /workspace/cdk-env
-
-          # Clone AWS CDK Repository
-          if [ ! -d "/workspace/aws-cdk/.git" ]; then
-            echo "Cloning AWS CDK repository..."
-            git clone https://github.com/aws/aws-cdk.git /workspace/aws-cdk
-          else
-            echo "AWS CDK repository already exists."
-          fi
-
-          # Validate issue number
-          if [ -z "$ISSUE_NUMBER" ]; then
-            echo "ERROR: ISSUE_NUMBER environment variable is not set!"
-            exit 1
-          fi
-          # Read last known CDK version from issue metadata
-          LATEST_CDK_VERSION=$(cat /workspace/cdk-app/issue-metadata.txt | grep -oP 'aws-cdk-lib@\K[0-9]+\.[0-9]+\.[0-9]+' || echo "latest")
-          echo "Installing AWS CDK version $LATEST_CDK_VERSION"
-          cd /workspace/cdk-env
-          npm install aws-cdk-lib@$LATEST_CDK_VERSION
-
-          # Initialize the CDK app
-          echo "🔹 Initializing CDK App..."
-          cd /workspace/cdk-app
-          npm install -g aws-cdk
-          cdk init --app "$ISSUE_NUMBER" --language=typescript
-
           echo "Issue environment setup complete!"
           exec /bin/bash  # Keep container open for interactive debugging
           EOF
 
+      # Ensure script permissions
+      - chmod +x /workspace/setup.sh
       - echo "setup.sh created successfully"
-      - cp /workspace/setup.sh .
-      - echo "Copied setup.sh into build context"
 
+      # Prepare Dockerfile
       - |
-          cat <<EOF > /workspace/cdk-app/Dockerfile
+          cat <<EOF > /workspace/Dockerfile
           FROM public.ecr.aws/docker/library/node:18
 
           RUN apt-get update && apt-get install -y git unzip python3-pip awscli jq
 
           WORKDIR /workspace
 
-          RUN npm install -g aws-cdk
-        
           ENV AWS_REGION=$AWS_REGION
           ENV AWS_ACCOUNT_ID=$AWS_ACCOUNT_ID
           ENV GITHUB_TOKEN=$GITHUB_TOKEN
           
+          # Copy the cloned AWS CDK repo
+          COPY aws-cdk /workspace/aws-cdk/
+
+          # Copy the initialized CDK app
+          COPY cdk-app /workspace/cdk-app/
+
+          # Copy the setup script
           COPY setup.sh /workspace/
+
           RUN chmod +x /workspace/setup.sh
 
           CMD ["/workspace/setup.sh"]
@@ -90,9 +97,12 @@ phases:
 
       - echo "Dockerfile created successfully"
 
+      # Build and push Docker image
       - echo "Building docker image - $IMAGE_TAG"
+      - cd /workspace
       - docker build -t "$IMAGE_TAG" .
       - docker push "$IMAGE_TAG"
+
   post_build:
     commands:
       - echo "Docker Image Pushed - $IMAGE_TAG"
