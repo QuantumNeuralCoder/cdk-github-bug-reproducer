@@ -87,6 +87,9 @@ phases:
           # Copy the initialized CDK app
           COPY cdk-app /workspace/cdk-app/
 
+          # Copy the initialized ISSUE app
+          COPY issue-app /workspace/issue-app/
+
           # Copy the setup script
           COPY setup.sh /workspace/
 
