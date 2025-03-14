@@ -29,7 +29,6 @@ export async function handler(event) {
     // ✅ Trigger AWS CodeBuild using `buildspec.yml` in S3
     const buildParams = {
         projectName: CODEBUILD_PROJECT_NAME,
-        sourceVersion: `s3://${BUILDSPEC_BUCKET_NAME}/buildspecs/buildspec.yml`,
         environmentVariablesOverride: [
             { name: "ISSUE_NUMBER", value: String(issueNumber), type: "PLAINTEXT" },
             { name: "IMAGE_TAG", value: imageTag, type: "PLAINTEXT" },
