@@ -61,9 +61,12 @@ class OrgAccountCommonStack extends StackSetStack{
             description: 'GH issue processor task execution role Arn'
         });
 
-        // Create a role that can be assumed by the task execution role
+        // Create a role that can be assumed by the task execution role with Administrator permissions
         const role = new iam.Role(this, 'MyRole', {
-            assumedBy: iam.Role.fromRoleArn(this, "gIssueProcessorImportedRole", ghIssueProcessorTaskExecutionRoleArn.valueAsString)
+            assumedBy: iam.Role.fromRoleArn(this, "gIssueProcessorImportedRole", ghIssueProcessorTaskExecutionRoleArn.valueAsString),
+            managedPolicies: [
+                iam.ManagedPolicy.fromAwsManagedPolicyName('AdministratorAccess')
+            ]
         });
 
         // Create a custom resource to register/deregister this account with the account manager using inline Python code
